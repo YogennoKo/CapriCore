@@ -199,7 +199,7 @@ export class ChatGPTPlanAuth {
     await this.loading;
     if (this.loadError)
       throw problem(
-        'Saved ChatGPT access could not be read. Restore access using the original Windows account.',
+        'Saved ChatGPT access could not be read. Restore access using the original operating system account.',
       );
   }
   async mutate(change) {

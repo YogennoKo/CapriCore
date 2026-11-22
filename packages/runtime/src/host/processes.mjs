@@ -45,6 +45,16 @@ export function processStartedAt(pid) {
         ],
         { windowsHide: true, encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] },
       ).trim();
+    if (process.platform === 'darwin') {
+      const stamp = execFileSync('/bin/ps', ['-p', String(pid), '-o', 'lstart='], {
+        encoding: 'utf8',
+        env: { LC_ALL: 'C', TZ: 'UTC' },
+        timeout: 3000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      const millis = Date.parse(stamp + ' GMT');
+      return Number.isFinite(millis) ? String(millis) : null;
+    }
     const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
     return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
   } catch {

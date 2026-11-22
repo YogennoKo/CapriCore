@@ -955,7 +955,8 @@ async function initializeDesktop() {
     credential: () => githubAccess.credential(),
   });
   const automaticUpdatesEnabled =
-    !verification || process.env.CAPRI_DESKTOP_VERIFICATION_UPDATE_CHECK === '1';
+    process.platform !== 'darwin' &&
+    (!verification || process.env.CAPRI_DESKTOP_VERIFICATION_UPDATE_CHECK === '1');
   let updateNoticeTag;
   const speechInstaller = new SpeechInstallService({
     root: verification ? verificationFolder : root,
@@ -7874,9 +7875,13 @@ async function initializeDesktop() {
       if (role !== 'settings') throw new Error('Open Updates in Settings.');
       return shell.openExternal(updates.historyUrl(id));
     });
-    handle('capri:update-download', () => updates.prepare());
+    handle('capri:update-download', () => {
+      if (process.platform === 'darwin') throw new Error('Update the macOS checkout with git pull.');
+      return updates.prepare();
+    });
     handle('capri:update-cancel', () => updates.cancel());
     handle('capri:update-install', async () => {
+      if (process.platform === 'darwin') throw new Error('Update the macOS checkout with git pull.');
       assertIdle({ requireBackend: false });
       if (
         models.busy() ||
@@ -9763,6 +9768,8 @@ async function initializeDesktop() {
     window.on('hide', () => pointer.cancel());
     window.once('ready-to-show', () => {
       if (!verification) showCompanion();
+      if (!verification && process.platform === 'darwin' && process.env.CAPRI_SETUP_CHATGPT === '1')
+        void settingsHost.open('api', 'chatgpt-plan-connect').catch(console.error);
       if (!verification) publishLaunchReceipt(root, process.env.CAPRI_LAUNCH_NONCE);
       if (automaticUpdatesEnabled) void updates.startAutomaticChecks();
       console.info('Capri companion window ready.', JSON.stringify(window.getBounds()));
@@ -9777,7 +9784,10 @@ async function initializeDesktop() {
     activeMask = maskFor(avatar.currentId);
     pointer.start();
 
-    tray = new Tray(path.join(root, 'assets/default/app.ico'));
+    const trayIcon = process.platform === 'darwin'
+      ? nativeImage.createFromPath(applicationIcon).resize({ width: 18, height: 18 })
+      : path.join(root, 'assets/default/app.ico');
+    tray = new Tray(trayIcon);
     tray.setToolTip(uiText('Capri desktop companion', languages.value.interface));
     tray.on('click', () => restoreCompanion());
     tray.on('balloon-click', () => {

@@ -2,6 +2,11 @@
 
 # CapriCore · Capri 1.1.1
 
+## macOS fork
+
+On macOS with Node.js and npm installed, run `./scripts/macos.sh --chatgpt` from this checkout.
+The launcher installs the pinned toolchain and dependencies locally, prepares a profile, and opens Capri's connection settings on first launch. [macOS setup and ChatGPT Plus](docs/macos.md)
+
 A Windows AI desktop companion powered by OpenClaw: bundled local LLMs, Hugging Face GGUF models or OpenAI-compatible APIs, with shared conversation and memory, 50 interface languages, optional voice and explicitly enabled desktop tools.
 
 [Website](https://capri-core.com/) · [Discord](https://discord.gg/capricore) · [Documentation](docs/README.md) · [Roadmap](ROADMAP.md) · [Contribute](CONTRIBUTING.md)

@@ -7,7 +7,7 @@ import { initialize } from './context.mjs';
 import { launch, managedProcess } from './host/processes.mjs';
 import { ensureDesktopIdentity } from './host/desktop-identity.mjs';
 import { runtime } from './context.mjs';
-import { electronBundleReady } from './host/electron-bundle.mjs';
+import { electronBundleReady, macElectronBinary } from './host/electron-bundle.mjs';
 import { updateBlocksStartup } from './host/update-state.mjs';
 
 const run = promisify(execFile);
@@ -33,10 +33,9 @@ export async function startDesktop({ wait = false } = {}) {
     throw new Error(
       'An update is in progress or was interrupted. Wait for it to finish, or repair this folder with the full installer.',
     );
-  if (process.platform !== 'win32' || process.arch !== 'x64')
-    throw new Error(
-      'This desktop preview currently targets Windows x64. Runtime unit tests also run on Linux.',
-    );
+  const mac = process.platform === 'darwin' && ['arm64', 'x64'].includes(process.arch);
+  if (!mac && !(process.platform === 'win32' && process.arch === 'x64'))
+    throw new Error('Capri Desktop supports macOS (arm64 or x64) and Windows x64.');
   if (!existsSync(path.join(root, 'config/core.local.json')))
     throw new Error('Run npm run setup first to choose a hardware profile.');
   const existing = managedProcess('desktop');
@@ -47,13 +46,19 @@ export async function startDesktop({ wait = false } = {}) {
     );
     return { ...existing, alreadyRunning: true };
   }
-  if (!electronBundleReady(path.join(root, 'node_modules/electron')))
+  if (!electronBundleReady(path.join(root, 'node_modules/electron'), undefined, process.platform))
     throw new Error(
-      'The Capri desktop download is incomplete. Open Capri Setup again, select this installation folder and choose Retry or Repair. Keep Setup open until it finishes; microphone and voice are optional.',
+      mac
+        ? 'The macOS Electron runtime is incomplete. Run ./scripts/macos.sh to repair it.'
+        : 'The Capri desktop download is incomplete. Open Capri Setup again, select this installation folder and choose Retry or Repair. Keep Setup open until it finishes; microphone and voice are optional.',
     );
   const rt = runtime();
   initialize(rt);
-  let executable = path.join(root, 'node_modules/electron/dist/electron.exe');
+  let executable = path.join(
+    root,
+    'node_modules/electron/dist',
+    mac ? macElectronBinary : 'electron.exe',
+  );
   executable = await ensureDesktopIdentity(executable);
   for (const action of ['stop', 'show'])
     try {
