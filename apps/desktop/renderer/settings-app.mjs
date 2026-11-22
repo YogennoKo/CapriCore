@@ -1053,10 +1053,13 @@ function showCallSetup() {
   const pending = callAudioBusy || callSetupBusy || callSetup.busy === true;
   const phase = ready ? 'ready' : callSetup.phase === 'ready' ? 'idle' : callSetup.phase;
   const missing = phase === 'missing';
+  const mac = callAudio.cableDriver === 'BlackHole';
   const statuses = {
     idle: 'Set up once, then choose the virtual microphone in your call app.',
     checking: 'Looking for a virtual audio cable…',
-    missing: 'A virtual audio cable is needed. Install VB-CABLE to continue.',
+    missing: mac
+      ? 'Install BlackHole 2ch, then click Check again.'
+      : 'A virtual audio cable is needed. Install VB-CABLE to continue.',
     downloading: 'Downloading the official VB-CABLE driver…',
     connecting: 'Connecting your microphone and Capri’s voice…',
     installing: 'Installing VB-CABLE. Approve the Windows permission request if it appears.',
@@ -1085,7 +1088,8 @@ function showCallSetup() {
   $('call-setup-connect').hidden = ready;
   $('call-setup-connect').textContent = ui.text(missing ? 'Check again' : 'Set up automatically');
   $('call-setup-connect').disabled = !callAudio.supported || pending;
-  $('call-setup-install-options').hidden = !missing;
+  $('call-setup-install-options').hidden = !missing || mac;
+  $('call-setup-blackhole').hidden = !missing || !mac;
   $('call-setup-consent').disabled = pending;
   $('call-setup-install').disabled =
     !callAudio.supported || pending || !$('call-setup-consent').checked;
@@ -1211,6 +1215,7 @@ async function runCallAudio(action, selection) {
 $('call-setup-connect').onclick = () => runCallSetup('connect');
 $('call-setup-install').onclick = () => runCallSetup('install');
 $('call-setup-consent').onchange = showCallSetup;
+$('call-setup-blackhole').onclick = () => runCallSetup('website');
 $('call-setup-website').onclick = () => runCallSetup('website');
 $('call-setup-license').onclick = () => runCallSetup('license');
 $('call-system-enable').onclick = () => runCallAudio('system-on');
@@ -2297,6 +2302,7 @@ function event(value) {
   if (value.type === 'settings.call-audio' || value.type === 'call-audio.reset') {
     callAudio = value.state ?? {
       supported: callAudio.supported,
+      cableDriver: callAudio.cableDriver,
       allowModel: callAudio.allowModel,
       callVoiceVolume: callAudio.callVoiceVolume,
     };

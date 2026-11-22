@@ -98,6 +98,15 @@ export function virtualCallCable(devices) {
       })),
   );
   const outputs = callOutputDevices(devices);
+  const blackhole = /^BlackHole 2ch$/i;
+  const sources = inputs.filter((device) => blackhole.test(device.label));
+  const sinks = outputs.filter((device) => blackhole.test(device.label));
+  if (sources.length === 1 && sinks.length === 1)
+    return {
+      deviceId: sinks[0].deviceId,
+      outputLabel: sinks[0].label,
+      inputLabel: sources[0].label,
+    };
   for (const family of ['', '-A', '-B', '-C', '-D']) {
     const input = new RegExp('\\bCABLE' + family + ' Output\\b', 'i');
     const output = new RegExp('\\bCABLE' + family + ' Input\\b', 'i');

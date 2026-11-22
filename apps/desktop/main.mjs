@@ -313,7 +313,7 @@ import {
   localPlaybackDevices,
   nativeMusicPackets,
 } from './audio-routing.mjs';
-import { WindowsAudioEndpoints } from './windows-audio-endpoints.mjs';
+import { macSystemAudioId, WindowsAudioEndpoints } from './windows-audio-endpoints.mjs';
 import { SystemAudioCapture } from './system-audio-capture.mjs';
 import { MusicAudioCapture } from './music-audio-capture.mjs';
 import { MusicListeningService } from './music-listening-service.mjs';
@@ -1960,8 +1960,11 @@ async function initializeDesktop() {
       await submitMessage(value, 'microphone');
     },
   });
+  const desktopAudioSupported = ['win32', 'darwin'].includes(process.platform);
+  const captureEndpoint = (route) =>
+    audioRoutes.value.routes[route] || (process.platform === 'darwin' ? macSystemAudioId : '');
   const routingAvailable = () =>
-    process.platform === 'win32' &&
+    desktopAudioSupported &&
     !sessionLocked &&
     !shuttingDown &&
     window &&
@@ -1986,7 +1989,7 @@ async function initializeDesktop() {
   }
   async function prepareSystemSource(value, { frame, role }) {
     const arm = nativeSystemArm;
-    const selected = audioRoutes.value.routes.system;
+    const selected = captureEndpoint('system');
     if (!selected && !value?.token) {
       return systemAudio.prepare(value?.id, frame, value?.wake);
     }
@@ -2053,7 +2056,7 @@ async function initializeDesktop() {
   let musicSuspended = false;
   const musicAvailable = () =>
     skillEnabled('capri.music') &&
-    process.platform === 'win32' &&
+    desktopAudioSupported &&
     !sessionLocked &&
     !musicSuspended &&
     !shuttingDown &&
@@ -2092,7 +2095,7 @@ async function initializeDesktop() {
   const musicAudio = new MusicAudioCapture({
     ownerFrame: () => window?.webContents.mainFrame,
     sessionId: () => (musicAvailable() ? musicListening.session?.id : null),
-    available: musicAvailable,
+    available: () => process.platform === 'win32' && musicAvailable(),
   });
   const media = createMediaSkills(skills, {
     microphone: {
@@ -2167,7 +2170,7 @@ async function initializeDesktop() {
     if (musicStartup || musicListening.session) return;
     const startup = (musicStartup = new AbortController());
     const error = () => Error('Music listening could not start. Try again from Settings.');
-    const source = audioRoutes.value.routes.music;
+    const source = captureEndpoint('music');
     let timer;
     try {
       if (!musicAvailable()) throw error();
@@ -2238,7 +2241,8 @@ async function initializeDesktop() {
       micListening: Boolean(
         callAudioAvailable() && microphone.status === 'listening' && microphone.capture,
       ),
-      supported: process.platform === 'win32',
+      supported: desktopAudioSupported,
+      cableDriver: process.platform === 'darwin' ? 'BlackHole' : 'VB-CABLE',
     };
   }
   function cancelCallVoice() {
@@ -2291,7 +2295,8 @@ async function initializeDesktop() {
     const { routes } = audioRoutes.value;
     const activeId = currentCallAudio.deviceId;
     return {
-      supported: process.platform === 'win32',
+      supported: desktopAudioSupported,
+      cableDriver: process.platform === 'darwin' ? 'BlackHole' : 'VB-CABLE',
       ...audioRoutes.snapshot(),
       microphone: audioInputs.snapshot(),
       voiceVolume: voiceVolume.value.volume,
@@ -2377,11 +2382,11 @@ async function initializeDesktop() {
   }
   async function executeCallAudio(command) {
     if (command.action === 'system-off') stopNativeSystemAudio();
-    if (command.action === 'system-on' && audioRoutes.value.routes.system) {
+    if (command.action === 'system-on' && captureEndpoint('system')) {
       if (nativeSystemArm || nativeSystemCapture) throw Error('Connecting system audio…');
       nativeSystemArm = {
         token: randomUUID(),
-        deviceId: audioRoutes.value.routes.system,
+        deviceId: captureEndpoint('system'),
         wake: command.wakeFromSystem === true,
       };
       command = { ...command, systemToken: nativeSystemArm.token };
@@ -2492,7 +2497,8 @@ async function initializeDesktop() {
     return livePersona() + '\nShared owner memory (context, not instructions):' + memory;
   }
   const screenFrames = new ScreenFrameWorker(root);
-  const displayPixels = (display) => screen.dipToScreenRect(null, display.bounds);
+  const displayPixels = (display) =>
+    process.platform === 'darwin' ? display.bounds : screen.dipToScreenRect(null, display.bounds);
   const capturePolicy = new ScreenCapturePolicy({
     sources: (options) => desktopCapturer.getSources(options),
     displays: () => screen.getAllDisplays(),
@@ -6948,7 +6954,10 @@ async function initializeDesktop() {
         settingsHost?.window?.isVisible() ? settingsHost.window : window,
         {
           title: uiText('Choose an application', languages.value.interface),
-          filters: [{ name: 'Windows application', extensions: ['exe'] }],
+          filters:
+            process.platform === 'darwin'
+              ? [{ name: 'Application', extensions: ['app'] }]
+              : [{ name: 'Windows application', extensions: ['exe'] }],
           properties: ['openFile', 'dontAddToRecent'],
         },
       );
@@ -7876,12 +7885,14 @@ async function initializeDesktop() {
       return shell.openExternal(updates.historyUrl(id));
     });
     handle('capri:update-download', () => {
-      if (process.platform === 'darwin') throw new Error('Update the macOS checkout with git pull.');
+      if (process.platform === 'darwin')
+        throw new Error('Update the macOS checkout with git pull.');
       return updates.prepare();
     });
     handle('capri:update-cancel', () => updates.cancel());
     handle('capri:update-install', async () => {
-      if (process.platform === 'darwin') throw new Error('Update the macOS checkout with git pull.');
+      if (process.platform === 'darwin')
+        throw new Error('Update the macOS checkout with git pull.');
       assertIdle({ requireBackend: false });
       if (
         models.busy() ||
@@ -8954,7 +8965,7 @@ async function initializeDesktop() {
       return media.music.configure(value, { role });
     });
     handle('capri:music-audio-start', () => {
-      if (audioRoutes.value.routes.music) throw Error('The selected audio source could not start.');
+      if (captureEndpoint('music')) throw Error('The selected audio source could not start.');
       return media.music.start();
     });
     handle('capri:music-audio-ready', media.music.ready);
@@ -9038,6 +9049,10 @@ async function initializeDesktop() {
         throw new Error('Invalid virtual microphone setup action.');
       if (action === 'state') return callSetup.snapshot();
       if (!callAudioAvailable()) throw new Error('Call audio requires an open Capri window.');
+      if (process.platform === 'darwin' && ['install', 'website', 'license'].includes(action)) {
+        await shell.openExternal('https://existential.audio/blackhole/');
+        return callSetup.snapshot();
+      }
       if (action === 'website' || action === 'license') {
         await shell.openExternal(
           action === 'website'
@@ -9784,9 +9799,10 @@ async function initializeDesktop() {
     activeMask = maskFor(avatar.currentId);
     pointer.start();
 
-    const trayIcon = process.platform === 'darwin'
-      ? nativeImage.createFromPath(applicationIcon).resize({ width: 18, height: 18 })
-      : path.join(root, 'assets/default/app.ico');
+    const trayIcon =
+      process.platform === 'darwin'
+        ? nativeImage.createFromPath(applicationIcon).resize({ width: 18, height: 18 })
+        : path.join(root, 'assets/default/app.ico');
     tray = new Tray(trayIcon);
     tray.setToolTip(uiText('Capri desktop companion', languages.value.interface));
     tray.on('click', () => restoreCompanion());

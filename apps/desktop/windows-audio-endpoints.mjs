@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import { macBridge } from '../../integrations/desktop-actions/macos-build.mjs';
 import { prepareNativeHelper } from './native-helper.mjs';
 
+export const macSystemAudioId = 'macos-system-audio';
 export const WINDOWS_AUDIO_SAMPLE_RATE = 16000;
 export const WINDOWS_AUDIO_PACKET_BYTES =
   (WINDOWS_AUDIO_SAMPLE_RATE * Float32Array.BYTES_PER_ELEMENT) / 10;
@@ -67,7 +69,7 @@ export class WindowsAudioEndpoints {
 
   async capture(id, { onPacket, onError = () => {}, signal } = {}) {
     if (
-      this.platform !== 'win32' ||
+      (this.platform !== 'win32' && !(this.platform === 'darwin' && id === macSystemAudioId)) ||
       !validWindowsAudioEndpointId(id) ||
       typeof onPacket !== 'function'
     )
@@ -75,7 +77,10 @@ export class WindowsAudioEndpoints {
     signal?.throwIfAborted();
     let child;
     try {
-      const executable = await this.prepare(this.root, 'audio-endpoints');
+      const executable =
+        this.platform === 'darwin'
+          ? macBridge(this.root)
+          : await this.prepare(this.root, 'audio-endpoints');
       signal?.throwIfAborted();
       child = this.spawnProcess(executable, ['capture', id], {
         windowsHide: true,

@@ -46,8 +46,13 @@ export function isVerifiedSeparateCallCable(devices, { output, microphone } = {}
   )
     return false;
   const family = label(sink.label).match(/\bCABLE(-[A-D])? Input\b/i)?.[1] ?? '';
-  const sourceName = new RegExp('\\bCABLE' + family + ' Output\\b', 'i');
-  const sinkName = new RegExp('\\bCABLE' + family + ' Input\\b', 'i');
+  const blackhole = /^BlackHole 2ch$/i;
+  const sourceName = blackhole.test(label(sink.label))
+    ? blackhole
+    : new RegExp('\\bCABLE' + family + ' Output\\b', 'i');
+  const sinkName = blackhole.test(label(sink.label))
+    ? blackhole
+    : new RegExp('\\bCABLE' + family + ' Input\\b', 'i');
   if (!sinkName.test(label(sink.label))) return false;
   const sources = devices.filter(
     (device) =>

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { spawn } from 'node:child_process';
 import { constants, setPriority } from 'node:os';
+import { macBridge } from '../../integrations/desktop-actions/macos-build.mjs';
 import path from 'node:path';
 import { screenshotDimensions } from './screenshot-files.mjs';
 
@@ -82,17 +83,19 @@ export class ScreenFrameWorker {
   start() {
     if (this.child) return this.child;
     const child = this.spawnImpl(
-      'powershell.exe',
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        path.join(this.root, 'integrations/perception/native/capture-display.ps1'),
-        '-Worker',
-      ],
+      process.platform === 'darwin' ? macBridge(this.root) : 'powershell.exe',
+      process.platform === 'darwin'
+        ? ['--frames']
+        : [
+            '-NoLogo',
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            path.join(this.root, 'integrations/perception/native/capture-display.ps1'),
+            '-Worker',
+          ],
       { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] },
     );
     this.child = child;
@@ -100,7 +103,7 @@ export class ScreenFrameWorker {
       if (child.pid) setPriority(child.pid, constants.priority.PRIORITY_BELOW_NORMAL);
     } catch {}
     const failed = () => {
-      if (this.child === child) this.close(new Error('Windows screen capture stopped'));
+      if (this.child === child) this.close(new Error('Screen capture stopped'));
     };
     child.on('error', failed).on('close', failed);
     child.stdin.on('error', failed);
@@ -128,10 +131,7 @@ export class ScreenFrameWorker {
         error ? reject(error) : resolve(value);
       };
       const abort = () => this.close(signal.reason);
-      const deadline = setTimeout(
-        () => this.close(new Error('Windows screen capture timed out')),
-        7000,
-      );
+      const deadline = setTimeout(() => this.close(new Error('Screen capture timed out')), 7000);
       const receive = (chunk) => {
         try {
           if (!frame) {
@@ -142,7 +142,11 @@ export class ScreenFrameWorker {
             chunk = chunk.subarray(length);
             const bytes = header.readInt32LE(28);
             if (header.readInt32LE(0) === 1 && bytes === 0 && !chunk.length) {
-              finish(new Error('Windows could not capture the selected screen'));
+              finish(
+                new Error(
+                  'Could not capture the selected screen. Check screen recording permission.',
+                ),
+              );
               return;
             }
             const bounds = Object.fromEntries(
@@ -176,7 +180,7 @@ export class ScreenFrameWorker {
           }
           finish(null, { ...frame, [format]: pixels });
         } catch {
-          this.close(new Error('Windows returned an invalid screen frame'));
+          this.close(new Error('Received an invalid screen frame'));
         }
       };
       this.finish = finish;

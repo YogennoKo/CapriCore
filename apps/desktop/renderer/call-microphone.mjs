@@ -23,7 +23,7 @@ const specificDevice = (id) =>
 
 // A cable's recording endpoint must never be mixed back into its playback endpoint.
 const loopback =
-  /\b(?:cable(?:[ -]?[a-d])?\s+(?:input|output)|vb[ -]?audio|voicemeeter|steam streaming|loopback|stereo mix|what u hear|wave out mix|virtual|obs[ -]?audio)\b/i;
+  /\b(?:cable(?:[ -]?[a-d])?\s+(?:input|output)|vb[ -]?audio|voicemeeter|blackhole|steam streaming|loopback|stereo mix|what u hear|wave out mix|virtual|obs[ -]?audio)\b/i;
 const physicalLabel = (label) =>
   typeof label === 'string' && Boolean(label.trim()) && !loopback.test(label);
 const livePhysicalTrack = (track) => track?.readyState === 'live' && physicalLabel(track.label);

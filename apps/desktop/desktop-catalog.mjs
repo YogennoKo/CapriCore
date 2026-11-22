@@ -34,6 +34,16 @@ function regular(file, allowHardlinks = false) {
 }
 function executable(file) {
   if (
+    process.platform === 'darwin' &&
+    typeof file === 'string' &&
+    path.isAbsolute(file) &&
+    path.extname(file) === '.app'
+  ) {
+    if (!lstatSync(file).isDirectory() || !existsSync(path.join(file, 'Contents/Info.plist')))
+      throw Error('Choose a local application bundle.');
+    return realpathSync(file);
+  }
+  if (
     typeof file !== 'string' ||
     !path.isAbsolute(file) ||
     path.extname(file).toLowerCase() !== '.exe'
@@ -124,7 +134,7 @@ export class DesktopCatalog {
     if (apps.length >= 40) throw new Error('Remove an application before adding another.');
     apps.push({
       id: randomUUID(),
-      name: path.basename(exe, '.exe'),
+      name: path.basename(exe, path.extname(exe)),
       executable: exe,
       launch: false,
       inspect: false,

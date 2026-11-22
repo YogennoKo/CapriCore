@@ -1,12 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { macBridge } from './macos-build.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // OpenClaw imports a captured module graph before register() provides the real root.
 // Do not load installation configuration/executables from that temporary graph.
 import { root as defaultRoot } from '../../packages/runtime/src/host/paths.mjs';
 export function ensureDesktopActions(root = defaultRoot, { rebuild = false } = {}) {
+  if (process.platform === 'darwin') return macBridge(root);
   if (process.platform !== 'win32') throw new Error('Desktop application actions require Windows.');
   const source = path.join(root, 'integrations/desktop-actions/native/DesktopActions.cs');
   const sourceSha256 = createHash('sha256').update(readFileSync(source)).digest('hex');

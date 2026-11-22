@@ -95,7 +95,7 @@ export class MusicListeningService {
     return {
       phase: this.phase,
       enabled: Boolean(this.session),
-      supported: process.platform === 'win32' && Boolean(musicPython(this.root)),
+      supported: ['darwin', 'win32'].includes(process.platform) && Boolean(musicPython(this.root)),
       hearingMusic: this.decision.hearingMusic,
       energy: this.decision.energy,
       musicScore: this.decision.music,

@@ -74,7 +74,12 @@ function fixture() {
   };
 }
 const prepare = (f, options = {}) =>
-  prepareMusicDetector(f.root, { fetchImpl: f.fetchImpl, execute: f.execute, ...options });
+  prepareMusicDetector(f.root, {
+    platform: 'win32',
+    fetchImpl: f.fetchImpl,
+    execute: f.execute,
+    ...options,
+  });
 
 test('the music model accepts only four pinned fixed files with unique safe names', () => {
   for (const change of [
@@ -105,7 +110,9 @@ test('a checked official archive is staged, checked again and cached without sub
   const f = fixture(),
     progress = [];
   assert(
-    musicPython(f.root).endsWith('router-venv' + path.sep + 'Scripts' + path.sep + 'python.exe'),
+    musicPython(f.root, 'win32').endsWith(
+      'router-venv' + path.sep + 'Scripts' + path.sep + 'python.exe',
+    ),
   );
   const first = await prepare(f, { progress: (value) => progress.push(value) });
   assert.equal(f.downloads(), 1);

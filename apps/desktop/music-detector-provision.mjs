@@ -38,7 +38,11 @@ export function musicDetectorConfig(root) {
   return value;
 }
 
-export function musicPython(root) {
+export function musicPython(root, platform = process.platform) {
+  if (platform === 'darwin') {
+    const python = path.join(root, '.runtime/music-venv/bin/python');
+    return existsSync(python) ? python : null;
+  }
   return (
     ['router-venv', 'asr-venv']
       .map((name) => path.join(root, '.runtime', name, 'Scripts/python.exe'))
@@ -64,10 +68,16 @@ async function verifiedModel(folder, config) {
 
 export async function prepareMusicDetector(
   root,
-  { signal, progress = () => {}, fetchImpl = fetch, execute = runCommand } = {},
+  {
+    signal,
+    progress = () => {},
+    fetchImpl = fetch,
+    execute = runCommand,
+    platform = process.platform,
+  } = {},
 ) {
   const config = musicDetectorConfig(root),
-    python = musicPython(root);
+    python = musicPython(root, platform);
   if (!python) throw Error('Music listening is unavailable. Run Capri Setup again.');
   noLinks(python);
   const folder = path.join(root, 'data/models/music-detector', config.id);
@@ -101,19 +111,21 @@ export async function prepareMusicDetector(
   signal?.throwIfAborted();
   const temporary = mkdtempSync(path.join(parent, 'verified-'));
   await execute(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      path.join(root, 'integrations/music_runtime/extract.ps1'),
-      '-Archive',
-      archive,
-      '-Destination',
-      temporary,
-    ],
+    platform === 'darwin' ? python : 'powershell.exe',
+    platform === 'darwin'
+      ? ['-I', path.join(root, 'integrations/music_runtime/extract.py'), archive, temporary]
+      : [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          path.join(root, 'integrations/music_runtime/extract.ps1'),
+          '-Archive',
+          archive,
+          '-Destination',
+          temporary,
+        ],
     { cwd: root, timeoutMs: 30000, signal },
   );
   signal?.throwIfAborted();

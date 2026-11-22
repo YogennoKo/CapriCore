@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { ScreenFrameWorker } from './screen-frame-worker.mjs';
 import path from 'node:path';
 import { screenshotDimensions } from './screenshot-files.mjs';
 
@@ -10,6 +11,13 @@ export function captureActiveDisplay(
     throw new Error('Invalid owned verification window');
   if (displayWindow !== undefined && (ownedWindow || !/^[1-9]\d{0,18}$/.test(displayWindow)))
     throw new Error('Invalid display window');
+  if (process.platform === 'darwin') {
+    const worker = new ScreenFrameWorker(root);
+    return worker
+      .frame({ signal, ownedWindow, displayWindow })
+      .then(({ png, bounds }) => (withGeometry ? { png, bounds } : png))
+      .finally(() => worker.dispose());
+  }
   return new Promise((resolve, reject) => {
     const args = [
       '-NoLogo',

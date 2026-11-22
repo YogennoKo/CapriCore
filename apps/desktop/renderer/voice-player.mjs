@@ -390,7 +390,7 @@ export class VoicePlayer {
     if (microphone && micTrack?.readyState !== 'live') throw new Error(unavailableCallMicrophone);
     if (
       micTrack &&
-      /\b(?:stereo mix|what u hear|cable output|loopback|steam streaming microphone)\b/i.test(
+      /\b(?:stereo mix|what u hear|blackhole|cable output|loopback|steam streaming microphone)\b/i.test(
         micTrack.label,
       )
     )

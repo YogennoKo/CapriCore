@@ -16,6 +16,10 @@ if [[ ! -f node_modules/openclaw/openclaw.mjs || ! -f .runtime/macos-deps || "$(
   npm ci --no-audit --no-fund
   echo "$lockhash" > .runtime/macos-deps
 fi
+if [[ "${1:-}" == "--permissions" ]]; then
+  exec node integrations/desktop-actions/macos-build.mjs --request-permissions
+fi
+node integrations/desktop-actions/macos-build.mjs
 node -e 'require("electron")'
 if [[ ! -f config/core.local.json ]]; then
   node packages/runtime/bin/capri.mjs setup --yes

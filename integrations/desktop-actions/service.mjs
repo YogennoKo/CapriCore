@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { macBridge } from './macos-build.mjs';
 import path from 'node:path';
 import { constants, setPriority } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
@@ -73,6 +74,7 @@ export function applicationPermissions(file) {
 
 /** Resolve only the source-matched, hash-verified owned native executable. */
 export function applicationBridgeExecutable(root) {
+  if (process.platform === 'darwin') return macBridge(root);
   const directory = path.join(root, '.runtime/desktop-actions'),
     metadata = path.join(directory, 'build.json');
   const currentHash = hash(
@@ -117,13 +119,16 @@ export function callApplicationBridge(
     const child = spawn(executable, [], {
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: {
-        SystemRoot: windows,
-        WINDIR: windows,
-        PATH: path.join(windows, 'System32'),
-        TEMP: path.join(root, '.runtime/tmp'),
-        TMP: path.join(root, '.runtime/tmp'),
-      },
+      env:
+        process.platform === 'darwin'
+          ? { PATH: '/usr/bin:/bin' }
+          : {
+              SystemRoot: windows,
+              WINDIR: windows,
+              PATH: path.join(windows, 'System32'),
+              TEMP: path.join(root, '.runtime/tmp'),
+              TMP: path.join(root, '.runtime/tmp'),
+            },
     });
     if (command.action === 'chess_view' && child.pid) {
       try {
