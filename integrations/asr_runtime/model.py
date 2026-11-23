@@ -3,6 +3,7 @@ import hashlib
 import json
 import math
 import os
+import sys
 from pathlib import Path
 
 import sherpa_onnx
@@ -37,7 +38,7 @@ def settings():
     if language not in LANGUAGES and language not in {'auto', 'auto-europe'}:
         raise ValueError('Unsupported recognition language')
     value['language'] = language
-    if language == 'auto-europe' or (language != 'en' and LANGUAGES.get(language, {}).get('recognizer') == 'parakeet-v3'):
+    if language == 'auto-europe' or (sys.platform == 'darwin' and language == 'en') or (language != 'en' and LANGUAGES.get(language, {}).get('recognizer') == 'parakeet-v3'):
         value['folder'] = ROOT / 'data/speech/candidates/parakeet-tdt-v3-int8'
         value['engine'] = 'parakeet-tdt-0.6b-v3'
         # The pinned NeMo TDT v3 beam decoder can return an empty transcript

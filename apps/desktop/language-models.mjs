@@ -109,12 +109,22 @@ export function recognitionModelsInstalled(root, language, config) {
         return stat.isFile() && stat.size === bytes;
       });
     if (
-      !statSync(path.join(root, '.runtime/asr-venv/Scripts/python.exe')).isFile() ||
+      !statSync(
+        path.join(
+          root,
+          '.runtime/asr-venv',
+          process.platform === 'darwin' ? 'bin/python' : 'Scripts/python.exe',
+        ),
+      ).isFile() ||
       !complete(config.vad.modelDir, Object.values(detector.files))
     )
       return false;
     const kind = LANGUAGE_PACKS.find((p) => p.id === language)?.recognizer;
-    if (kind === 'parakeet-v3' || language === 'auto-europe') {
+    if (
+      kind === 'parakeet-v3' ||
+      language === 'auto-europe' ||
+      (process.platform === 'darwin' && language === 'en')
+    ) {
       const candidate = candidates.asr;
       return complete(candidate.directory, candidate.files);
     }

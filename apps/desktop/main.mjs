@@ -8364,7 +8364,7 @@ async function initializeDesktop() {
         nativeVoice(voice.language) && !externalTts.config.enabled
           ? {
               ready: voice.ready,
-              activeEngine: macVoice(root, voice.language) ? 'piper' : 'breeze-tts',
+              activeEngine: macVoice(root, voice.language)?.engine ?? 'breeze-tts',
             }
           : request(`${companionVoiceUrl()}/health`, {
               headers: companionVoiceHeaders(),

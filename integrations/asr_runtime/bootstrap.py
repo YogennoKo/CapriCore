@@ -9,6 +9,8 @@ if __name__ == '__main__':
     # import a different ONNX Runtime before the worker can select its DLL.
     root = Path(__file__).resolve().parents[2]
     packages = Path(sys.executable).parent.parent / 'Lib' / 'site-packages'
+    if sys.platform == 'darwin':
+        packages = Path(sys.executable).parent.parent / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
     sys.path.extend((str(root), str(packages)))
     module = ('integrations.voice_training.review_recordings' if '--transcribe-recordings' in sys.argv
               else 'integrations.asr_runtime.worker')
