@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { root, requireExecutable } from '../host/paths.mjs';
 import { nodePath, llamaPath, openclawPath } from '../host/executables.mjs';
+import { LlamaModelStore } from './llama-model-store.mjs';
 import { llamaBundleReady } from '../host/llama-bundle.mjs';
 import { settings } from '../config/settings.mjs';
 import { runtime, initialize, headers } from '../context.mjs';
@@ -14,6 +15,21 @@ import { gpuBudget } from '../hardware/gpu-budget.mjs';
 import { applyDependencySecurityPatches } from './dependency-security.mjs';
 import { migrateLanguageDevice, probeLanguageDevices } from '../hardware/model-devices.mjs';
 import { readModelDevices, modelsShareDevice } from '../model-device-settings.mjs';
+
+export function remoteWithoutLocalModels(rt) {
+  if (
+    process.platform !== 'darwin' ||
+    !rt.remote?.enabled ||
+    rt.remote.skipLocalModelOnApi === false
+  )
+    return false;
+  return (
+    !llamaPath ||
+    !new LlamaModelStore(root, settings)
+      .list()
+      .some(({ name }) => name === settings.embeddingModel || name === 'bge-m3:latest')
+  );
+}
 
 export async function stopManaged(name) {
   await stopProcess(name);

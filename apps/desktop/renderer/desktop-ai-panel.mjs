@@ -22,6 +22,7 @@ export class DesktopAiPanel {
         <label for="chatgpt-plan-model">ChatGPT model</label><select id="chatgpt-plan-model" disabled></select>
         <p class="settings-help" data-inline-help>Choose a model and click Use connection.</p>
         <div class="settings-actions"><button id="chatgpt-plan-save" type="button" disabled>Use connection</button><button id="chatgpt-plan-test" type="button" disabled>Test connection</button><button id="chatgpt-plan-models" type="button" disabled>Refresh models</button></div>
+        <p id="chatgpt-plan-test-result" role="status" aria-live="polite"></p>
         <p class="settings-help" data-inline-help>Capri sends conversation context and authorized tool results through the official Responses API. Images require a compatible model and enabled vision. A test sends only a fixed short sample.</p>
         <div class="settings-actions"><button id="chatgpt-plan-usage" type="button">Manage usage</button><button id="chatgpt-plan-signout" type="button" disabled>Sign out</button></div>
       </div>`;
@@ -50,18 +51,30 @@ export class DesktopAiPanel {
       await this.loadModels();
     };
     this.get('chatgpt-plan-model').onchange = () => {
+      this.get('chatgpt-plan-test-result').textContent = '';
       this.selectedModels.set(this.accountId(), this.modelId());
       this.sync();
     };
     this.get('chatgpt-plan-models').onclick = () => this.loadModels();
     this.get('chatgpt-plan-test').onclick = () =>
       this.action(async () => {
-        await api.chatGPTPlan({
-          action: 'test',
-          accountId: this.accountId(),
-          model: this.modelId(),
-        });
-        this.status('Connection works');
+        const result = this.get('chatgpt-plan-test-result');
+        result.textContent = this.ui.text('Testing connection…');
+        try {
+          const { elapsedMs } = await api.chatGPTPlan({
+            action: 'test',
+            accountId: this.accountId(),
+            model: this.modelId(),
+          });
+          result.textContent =
+            this.ui.text('Connection works') + ' · ' + (elapsedMs / 1000).toFixed(1) + ' s';
+        } catch (error) {
+          result.textContent = error.message.replace(
+            /^Error invoking remote method '[^']+': Error: /u,
+            '',
+          );
+          throw error;
+        }
       });
     this.get('chatgpt-plan-save').onclick = () =>
       this.action(async () => {
@@ -149,6 +162,7 @@ export class DesktopAiPanel {
     if (connected) await this.loadModels();
   }
   clearModels() {
+    this.get('chatgpt-plan-test-result').textContent = '';
     this.modelsRequest++;
     this.loadingModels = false;
     this.modelsAccount = null;
@@ -198,7 +212,7 @@ export class DesktopAiPanel {
     const selected = value.profiles.find((profile) => profile.id === this.accountId());
     this.status(
       value.loadError
-        ? 'Saved ChatGPT access could not be read. Restore access using the original Windows account.'
+        ? 'Saved ChatGPT access could not be read. Restore access using the original operating system account.'
         : selected?.connected && selected.sharing
           ? 'ChatGPT plan usage is enabled.'
           : selected?.connected

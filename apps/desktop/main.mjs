@@ -1,3 +1,4 @@
+import { macVoice } from './macos-voice.mjs';
 import {
   InferenceApi,
   apiSettings,
@@ -980,7 +981,7 @@ async function initializeDesktop() {
       if (!verification) await stopManaged('companion-voice');
     },
     ready: async () => {
-      voiceAvailable = externalTts.config.enabled || verification || companionVoiceInstalled();
+      voiceAvailable = hasVoiceEngine();
       voiceAllowed =
         voiceAvailable && (!verification || process.env.CAPRI_DESKTOP_VERIFICATION_VOICE === '1');
       asrInstalled = recognitionInstalled(asrConfig.language);
@@ -1544,7 +1545,15 @@ async function initializeDesktop() {
         JSON.parse(readFileSync(path.join(state, 'voice.json'), 'utf8')).enabled === true;
     } catch {}
   }
-  let voiceAvailable = externalTts.config.enabled || verification || companionVoiceInstalled();
+  function hasVoiceEngine() {
+    return (
+      externalTts.config.enabled ||
+      verification ||
+      Boolean(macVoice(root, 'en') || macVoice(root, 'ru')) ||
+      companionVoiceInstalled()
+    );
+  }
+  let voiceAvailable = hasVoiceEngine();
   let voiceAllowed =
     voiceAvailable && (!verification || process.env.CAPRI_DESKTOP_VERIFICATION_VOICE === '1');
   const voiceVolumeDefaults = { volume: VOICE_VOLUME_DEFAULT, lastAudible: VOICE_VOLUME_DEFAULT };
@@ -1561,11 +1570,13 @@ async function initializeDesktop() {
         process.env.CAPRI_DESKTOP_VERIFICATION_MOCK_PACKS === '1' &&
         LANGUAGE_PACKS.some((pack) => pack.id === language && pack.speechReady)
       );
-    return speechModelsInstalled(root, language);
+    return Boolean(macVoice(root, language)) || speechModelsInstalled(root, language);
   };
   const breezeVoice = new BreezeVoice({ root });
   const nativeVoice = (language) => {
     if (language === 'off') return null;
+    const piper = macVoice(root, language);
+    if (piper) return piper;
     try {
       return selectedVoiceModel(root, language).backend === 'breeze-tts' ? breezeVoice : null;
     } catch {
@@ -3342,11 +3353,7 @@ async function initializeDesktop() {
     )
       return voiceStartPromise;
     screenObservation?.activity();
-    if (
-      !externalTts.config.enabled &&
-      !verification &&
-      !speechModelsInstalled(root, voice.language)
-    ) {
+    if (!externalTts.config.enabled && !verification && !speechInstalled(voice.language)) {
       voice.fail(
         voice.language === 'en'
           ? ENGLISH_VOICE_SETUP_MESSAGE
@@ -7341,7 +7348,7 @@ async function initializeDesktop() {
       await stopVoiceForChange();
     };
     const afterVoiceApiChange = async () => {
-      voiceAvailable = externalTts.config.enabled || verification || companionVoiceInstalled();
+      voiceAvailable = hasVoiceEngine();
       voiceAllowed =
         voiceAvailable && (!verification || process.env.CAPRI_DESKTOP_VERIFICATION_VOICE === '1');
       voice.setLanguage(voiceAvailable ? resolveLanguages(languages.value).speech : 'off');
@@ -7386,7 +7393,7 @@ async function initializeDesktop() {
       assertModelIdle();
       const wasAvailable = voiceAvailable;
       const result = await voiceCatalog.select(selection);
-      voiceAvailable = externalTts.config.enabled || verification || companionVoiceInstalled();
+      voiceAvailable = hasVoiceEngine();
       voiceAllowed =
         voiceAvailable && (!verification || process.env.CAPRI_DESKTOP_VERIFICATION_VOICE === '1');
       if (!wasAvailable && voiceAllowed) {
@@ -8237,7 +8244,8 @@ async function initializeDesktop() {
       wakeLanguage: () => (voice.language === 'off' ? 'en' : voice.language),
       wakeIdentity: () => {
         if (externalTts.config.enabled) return JSON.stringify(externalTts.config);
-        if (nativeVoice(voice.language)) return breezeVoice.identity();
+        const adapter = nativeVoice(voice.language);
+        if (adapter) return adapter.identity();
         const config = companionVoiceSettings();
         try {
           return (
@@ -8354,7 +8362,10 @@ async function initializeDesktop() {
       }),
       voiceHealth: () =>
         nativeVoice(voice.language) && !externalTts.config.enabled
-          ? { ready: voice.ready, activeEngine: 'breeze-tts' }
+          ? {
+              ready: voice.ready,
+              activeEngine: macVoice(root, voice.language) ? 'piper' : 'breeze-tts',
+            }
           : request(`${companionVoiceUrl()}/health`, {
               headers: companionVoiceHeaders(),
               timeout: 2500,

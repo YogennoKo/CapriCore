@@ -1,6 +1,6 @@
 import { settings } from '../config/settings.mjs';
 import { runtime, headers } from '../context.mjs';
-import { startLlama, startGateway, stopManaged } from './services.mjs';
+import { remoteWithoutLocalModels, startLlama, startGateway, stopManaged } from './services.mjs';
 import { request } from '../http.mjs';
 import { managedProcess } from '../host/processes.mjs';
 import { runCli } from '../client.mjs';
@@ -27,6 +27,13 @@ export async function startCore(
 ) {
   signal?.throwIfAborted();
   onStage('core', 'running');
+  if (remoteWithoutLocalModels(rt)) {
+    await startGateway(rt, { signal });
+    signal?.throwIfAborted();
+    onStage('core', 'ready');
+    if (preload) onStage('models', 'ready');
+    return { engine: 'remote', version: rt.remote.model };
+  }
   const local = await startLlama(rt, { signal, voiceExpected, voiceReady });
   signal?.throwIfAborted();
   if (

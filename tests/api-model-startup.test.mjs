@@ -33,6 +33,7 @@ async function fixture(options, verify) {
   const state = {
     settings,
     rt,
+    remoteWithoutLocalModels: () => options.gatewayOnly === true,
     startLlama: async (_rt, value) => {
       calls.push({ name: 'startLlama', options: value });
       options.afterOllama?.();
@@ -84,7 +85,10 @@ async function fixture(options, verify) {
   const modules = new Map([
     ['../config/settings.mjs', 'export const settings = f.settings;'],
     ['../context.mjs', 'export const runtime = () => f.rt; export const headers = () => ({});'],
-    ['./services.mjs', functions('startLlama', 'startGateway', 'stopManaged')],
+    [
+      './services.mjs',
+      functions('remoteWithoutLocalModels', 'startLlama', 'startGateway', 'stopManaged'),
+    ],
     ['../http.mjs', functions('request')],
     ['../host/processes.mjs', functions('managedProcess')],
     ['../client.mjs', functions('runCli')],
@@ -456,4 +460,17 @@ test('aborted startup and direct warmup perform no service or network work', asy
       assert.deepEqual(names(), ['/api/tags', '/api/ps']);
     },
   );
+});
+
+test('API-only Mac reaches ready through the gateway without starting or querying llama', async () => {
+  await fixture({ gatewayOnly: true }, async ({ core, rt, names }) => {
+    const stages = [];
+    await core.startCore(rt, { onStage: (...args) => stages.push(args) });
+    assert.deepEqual(names(), ['startGateway']);
+    assert.deepEqual(stages, [
+      ['core', 'running'],
+      ['core', 'ready'],
+      ['models', 'ready'],
+    ]);
+  });
 });

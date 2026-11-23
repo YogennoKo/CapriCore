@@ -383,6 +383,10 @@ export class InferencePanel {
     const health = this.health.get(id);
     const state = row.canConnect ? (health?.state ?? 'unknown') : 'unavailable';
     row.card.dataset.health = state;
+    row.test.textContent = this.ui.text(
+      state === 'testing' ? 'Testing connection…' : 'Test connection',
+    );
+    row.test.setAttribute('aria-busy', String(state === 'testing'));
     row.test.disabled =
       !row.canConnect || state === 'testing' || Boolean(this.bulkTesting) || Boolean(this.saving);
     row.status.textContent = this.ui.text(
