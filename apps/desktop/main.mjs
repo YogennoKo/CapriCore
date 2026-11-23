@@ -9048,7 +9048,6 @@ async function initializeDesktop() {
       if (!['state', 'connect', 'install', 'website', 'license'].includes(action))
         throw new Error('Invalid virtual microphone setup action.');
       if (action === 'state') return callSetup.snapshot();
-      if (!callAudioAvailable()) throw new Error('Call audio requires an open Capri window.');
       if (process.platform === 'darwin' && ['install', 'website', 'license'].includes(action)) {
         await shell.openExternal('https://existential.audio/blackhole/');
         return callSetup.snapshot();
@@ -9061,6 +9060,18 @@ async function initializeDesktop() {
         );
         return callSetup.snapshot();
       }
+      if (!skillEnabled('capri.voice-calls')) throw new Error('Enable Voice calls in Settings.');
+      if (!sessionLocked && !shuttingDown && !quitting && !callAudioWindowAvailable()) {
+        restoreCompanion(false);
+        // macOS can finish restoring a minimized window after restore() returns.
+        for (let attempt = 0; attempt < 20 && !callAudioWindowAvailable(); attempt++) {
+          if (sessionLocked || shuttingDown || quitting || !settingsHost?.window?.isVisible())
+            break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      if (!callAudioWindowAvailable())
+        throw new Error('The Capri window is unavailable. Reopen Capri and try again.');
       return callSetup.run(action === 'install');
     });
     handle('capri:call-audio-state', (value) => {

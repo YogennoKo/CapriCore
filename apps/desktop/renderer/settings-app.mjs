@@ -1086,7 +1086,13 @@ function showCallSetup() {
       ' ' + ui.text('VB-Audio recommends restarting Windows after driver installation.');
   $('call-setup-status').setAttribute('aria-busy', String(pending));
   $('call-setup-connect').hidden = ready;
-  $('call-setup-connect').textContent = ui.text(missing ? 'Check again' : 'Set up automatically');
+  $('call-setup-connect').textContent = ui.text(
+    !skillState['capri.voice-calls']?.enabled
+      ? 'Enable Voice calls and set up'
+      : missing
+        ? 'Check again'
+        : 'Set up automatically',
+  );
   $('call-setup-connect').disabled = !callAudio.supported || pending;
   $('call-setup-install-options').hidden = !missing || mac;
   $('call-setup-blackhole').hidden = !missing || !mac;
@@ -1106,6 +1112,8 @@ async function runCallSetup(action) {
   callSetupBusy = true;
   showCallAudio();
   try {
+    if (action === 'connect' && !skillState['capri.voice-calls']?.enabled)
+      await raw.setSkill({ id: 'capri.voice-calls', enabled: true });
     const state = await raw.callAudioSetup(action);
     if (state) callSetup = state;
     if (action !== 'website' && action !== 'license') {
@@ -1679,6 +1687,7 @@ function skillGlyph(icon) {
 }
 function showSkillSettings() {
   showCallCamera();
+  showCallSetup();
   const skill = SKILL_BY_SECTION[current];
   skillHeader.hidden = !skill;
   if (skill) {
